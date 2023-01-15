@@ -17,6 +17,8 @@ Upon installation, this module creates a pivot table `uc_ordered_product_options
 
 **Important**: For orders placed before this module is enabled, the `uc_ordered_product_options` table is built using the current values for option price and weight adjustments (not the ones used when the product was first ordered). This is unavoidable, given the limitations of Ubercart's attribute architecture. If those values have changed since products were first ordered, the values in this table for past orders may be inaccurate. However, the records for all new orders will be accurate.
 
+To clarify: despite these potential accuracy issues for past ordered products, this module will not modify any of the information in the Ubercart core tables. All totals and ordered product information will remain intact. 
+
 Description and examples
 --------
 The handlers provided by this module will allow users to produce more complete
