@@ -1,0 +1,111 @@
+<?php
+
+/** 
+ * Implements hook_schema().
+ */
+function uc_attribute_views_schema() {
+  $schema['uc_ordered_product_options'] = array(
+    'description' => "A table to store selected options for ordered products",
+    'fields' => array(
+      'order_product_id' => array(
+        'description' => 'The ordered product ID from {uc_order_product}.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'The {node}.nid of the product.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'oid' => array(
+        'description' => 'The option ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'attribute_label' => array(
+        'description' => 'Label for attribute when the product was first ordered.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'option_label' => array(
+        'description' => 'The name of the option when the product was first ordered.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'cost_adjustment' => array(
+        'description' => "The adjustment to a product's cost with the chosen option when the product was first ordered.",
+        'type' => 'numeric',
+        'precision' => 16,
+        'scale' => 5,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'price_adjustment' => array(
+        'description' => "The adjustment to a product's price with the chosen option when the product was first ordered.",
+        'type' => 'numeric',
+        'precision' => 16,
+        'scale' => 5,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'weight_adjustment' => array(
+        'description' => "The adjustment to a product's physical weight with the chosen option when the product was first ordered.",
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'nid' => array('nid'),
+      'oid' => array('oid'),
+    ),
+    'foreign keys' => array(
+      'uc_order_products' => array(
+        'table' => 'uc_order_products',
+        'columns' => array('order_product_id' => 'order_product_id'),
+      ),
+      'node' => array(
+        'table' => 'node',
+        'columns' => array('nid' => 'nid'),
+      ),
+    )
+
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function uc_attribute_views_requirements($phase) {
+  $requirements = array();
+
+  if ($phase == 'runtime') {
+    $ordered_options_built = state_get('options_table_built', FALSE);
+    if (!$ordered_options_built) {
+      $requirements['ordered_options_needs_building'] = array(
+        'title' => t('Ordered Product Attribute Options'),
+        'value' => t('The table that stores the ordered products\' options need to be built. <a href="!path">Build the options table</a>.', array('!path' => '/admin/store/settings/products/options-table-build')),
+        'description' => t('The Attribute Option Views module will not work properly if the table is not built. Building the table may take some time if there are a lot of ordered products with attributes on file.'),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+  }
+  return $requirements;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function uc_attribute_views_uninstall() {
+  state_del('options_table_built');
+}

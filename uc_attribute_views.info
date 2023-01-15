@@ -1,0 +1,6 @@
+type = module
+name = Ubercart Attribute Views
+description = Provides handlers for UC Attributes, Options and Adjustments.
+package = Ubercart - extras
+backdrop = 1.x
+dependencies[] = uc_attribute

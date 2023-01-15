@@ -1,0 +1,287 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function uc_attribute_views_menu() {
+  $items['admin/store/settings/products/options-table-build'] = array(
+    'title' => t('Build ordered product attribute options table'),
+    'description' => t('Builds the attribute options table for ordered products, based on information stored in the uc_order_product table.'),
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('uc_attribute_views_build_confirmation'),
+    'access arguments' => array('administer product options'),
+    'type' => MENU_VISIBLE_IN_BREADCRUMB,
+    'file' => 'uc_attribute_views.admin.inc', 
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function uc_attribute_views_views_api() {
+  return array(
+    'api' => 3,
+    'path' => backdrop_get_path('module', 'uc_attribute_views') . '/views',
+  );
+}
+
+
+/**
+ * Extract option values from ordered product.
+ * 
+ * @return array
+ *  An indexed array of arrays. Each of the subarrays has the following keys:
+ *   - oid: the Option ID 
+ *   - order_product_id: the Ordered Product ID
+ *   - nid: the Product ID
+ *   - attribute_label: the custom attribute label for this product 
+ *   - option_label: the custom option label for this product 
+ *   - price_adjustment: this price is obtained from the CURRENT product/option 
+ *     definition, and may not be accuracte for products ordered before this
+ *     module was enabled if the option price changed after the order was placed.
+ *   - cost_adjustment: this cost is obtained from the CURRENT product/option 
+ *     definition, and may not be accuracte for products ordered before this
+ *     module was enabled if the option cost changed after the order was placed.
+ *   - weight_adjustment
+ */
+function uc_attribute_views_extract_option_data($order_product) {
+  $records = array();
+  $product = node_load($order_product->nid);
+  if ($product) {
+    foreach ($order_product->data['attributes'] as $attribute_name => $options) {
+      foreach ($options as $option_id => $label) {
+        $aid = _uc_attribute_views_get_aid($option_id);
+        if (!empty($aid)) {
+          $records[$option_id] = array(
+            'oid' => $option_id,
+            'order_product_id' => $order_product->order_product_id,
+            'nid' => $order_product->nid,
+            'attribute_label' => $attribute_name,
+            'option_label' => $label,
+            'price_adjustment' => $order_product->qty * $product->attributes[$aid]->options[$option_id]->price,
+            'cost_adjustment' => $order_product->qty * $product->attributes[$aid]->options[$option_id]->cost,
+            'weight_adjustment' => $order_product->qty * $product->attributes[$aid]->options[$option_id]->weight,
+          );
+        }
+      }
+    }
+  }
+  return $records;
+}
+
+/**
+ * Helper function that returns aid when oid is known. 
+ */
+function _uc_attribute_views_get_aid($oid) {
+  $aids = &backdrop_static(__FUNCTION__);
+  if (empty($aids[$oid])) {
+    $query = db_query("
+      SELECT ao.`aid` AS `aid`
+      FROM {uc_attribute_options} ao
+      WHERE  (`ao`.`oid` = :oid)", array(':oid' => $oid));
+    $aids[$oid] = $query->fetchField();
+  }
+  return $aids[$oid];
+}
+
+/**
+ * Implements hook_uc_order_product_insert().
+ * 
+ * @return bool
+ *  Whether options were inserted in the uc_ordered_product_options table.
+ */
+function uc_attribute_views_uc_order_product_insert($order_product) {
+  if (!empty($order_product->data['attributes'])) {
+    $records = uc_attribute_views_extract_option_data($order_product);
+    foreach ($records as $record) {
+      uc_attribute_views_insert($record);
+    }
+    return (bool) $records;
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_uc_order_product_update().
+ */
+function uc_attribute_views_uc_order_product_update($order_product) {
+  $original = $order_product->original;
+  if (!empty($original->data['attributes']) || !empty($order_product->data['attributes'])) {
+    $original_oids = array();
+    foreach ($original->data['attributes'] as $attribute_label => $attribute_options) {
+      $original_oids = array_merge($original_oids, array_keys($attribute_options));
+    }
+
+    $new_oids = array();
+    foreach ($order_product->data['attributes'] as $attribute_label => $attribute_options) {
+      $new_oids = array_merge($new_oids, array_keys($attribute_options));
+    }
+
+    $oids_to_delete = array_diff($original_oids, $new_oids);
+    $oids_to_insert = array_diff($new_oids, $original_oids);
+
+    foreach ($oids_to_delete as $oid) {
+      uc_attribute_views_delete(array(
+        'oid' => $oid,
+        'order_product_id' => $order_product->order_product_id,
+      ));
+    }
+    $records = uc_attribute_views_extract_option_data($order_product);
+    foreach ($oids_to_insert as $oid) {
+      uc_attribute_views_insert($records[$oid]);
+    }
+  }
+}
+
+/**
+ * Implements hook_uc_order_product_delete().
+ */
+function uc_attribute_views_uc_order_product_delete($order_product) {
+  foreach ($order_product->data['attributes'] as $attribute_label => $attribute_options) {
+    foreach($attribute_options as $oid => $label) {
+      uc_attribute_views_delete(array(
+        'oid' => $oid,
+        'order_product_id' => $order_product->order_product_id,
+      ));
+    }
+  }
+}
+
+/** 
+ * Inserts a record in the uc_ordered_product_options table.
+ * 
+ * @param array $record
+ *  An array with the following keys:
+ *   - oid: the option ID
+ *   - order_product_id: the ordered product internal ID
+ *   - nid: the product nid
+ */
+function uc_attribute_views_insert($record) {
+  db_insert('uc_ordered_product_options')
+  ->fields($record)
+  ->execute();
+}
+
+/** 
+ * Inserts a record in the uc_ordered_product_options table.
+ * 
+ * @param array $record
+ *  An array with the following keys:
+ *   - oid: the option ID
+ *   - order_product_id: the ordered product internal ID
+ */
+function uc_attribute_views_delete($record) {
+  db_delete('uc_ordered_product_options')
+    ->condition('oid', $record['oid'])
+    ->condition('order_product_id', $record['order_product_id'])
+    ->execute();
+}
+
+/** 
+ * Updates a record in the uc_ordered_product_options table.
+ * 
+ * @param array $record
+ *  An array with the following keys:
+ *   - oid: the option ID
+ *   - order_product_id: the ordered product internal ID
+ *   - nid: the node ID of the product
+ */
+function uc_attribute_views_update($record) {
+  db_update('uc_ordered_product_options')
+    ->condition('oid', $record['oid'])
+    ->condition('order_product_id', $record['order_product_id'])
+    ->fields($record)
+    ->execute();
+}
+
+/** 
+ * Implements hook_autoload_info().
+ */
+function uc_attribute_views_autoload_info() {
+  return array(
+    'UcOrderedProductOptionsFilter' => 'views/UcOrderedProductOptionsFilter.php',
+    'UcOrderedProductOptionsField' => 'views/UcOrderedProductOptionsField.php',
+    'UcAttributesViewsProductOptionsPriceField' => 'views/UcAttributesViewsProductOptionsPriceField.php',
+    'UcAttributesViewsProductOptionsWeightField' => 'views/UcAttributesViewsProductOptionsWeightField.php',
+    'UcAttributesViewsAdjustmentCombinationField' => 'views/UcAttributesViewsAdjustmentCombinationField.php',
+    'UcAttributesViewsHasSkuAdjustmentFilter' => 'views/UcAttributesViewsHasSkuAdjustmentFilter.php',
+    'UcAttributeViewsAdjustedSkuOptionFilter' => 'views/UcAttributeViewsAdjustedSkuOptionFilter.php',
+    'UcAttributeViewsHasAttributeFilter' => 'views/UcAttributeViewsHasAttributeFilter.php',
+    'UcAttributesViewsAttributesField' => 'views/UcAttributesViewsAttributesField.php',
+  );
+}
+
+/**
+ * Batch process to build options table.
+ */
+function uc_attribute_views_build_batch($opids, &$context) {
+  if (!isset($context['sandbox']['current_item'])) {
+    $context['sandbox']['current_item'] = 0;
+    $context['sandbox']['count'] = count($opids);
+    $context['results']['success'] = array();
+    $context['results']['failure'] = array();
+  }
+
+  // Process 15 products at a time.
+  $limit = min($context['sandbox']['current_item'] + 15, $context['sandbox']['count']);
+  while ($context['sandbox']['current_item'] < $limit) {
+    $opid = $opids[$context['sandbox']['current_item']];
+    $order_product = uc_order_product_load($opid);
+    $status = uc_attribute_views_uc_order_product_insert($order_product);
+    if ($status) {
+      $context['results']['success'][] = $opid;
+    } 
+    else {
+      $context['results']['failure'][] = $opid;
+    }
+    $context['message'] = t('Now processing product ID %opid', array('%opid' => $opid));
+    $context['sandbox']['current_item']++;
+  }
+  $context['finished'] = $context['sandbox']['current_item'] / $context['sandbox']['count'];
+}
+
+/**
+ * Batch 'finished' callback.
+ */
+function uc_attribute_views_build_finished($success, $results, $operations) {
+  if ($success) {
+    $succeeded = format_plural(count($results['success']), 'One ordered product processed successfully.', '@count ordered products processed successfully.');
+    $failed = format_plural(count($results['failure']), 'One ordered product could not be processed.', '@count ordered products could not be processed.');
+    if (!empty($failed)) {
+      $message = theme('item_list', array('items' => array($succeeded, $failed)));
+    }
+    else {
+      $message = $succeeded;
+    }
+    backdrop_set_message($message);
+    state_set('options_table_built', TRUE);
+  }
+  else {
+    // An error occurred.
+    $error_operation = reset($operations);
+    backdrop_set_message(
+      t('An error occurred while processing @operation with arguments : @args',
+        array(
+          '@operation' => $error_operation[0],
+          '@args' => print_r($error_operation[0], TRUE),
+        )
+      )
+    );
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * 
+ * Adds a button to the product attributes configuration vertical
+ * to rebuild the options table. 
+ */
+function uc_attribute_views_form_uc_product_settings_form_alter(&$form, &$form_state) {
+  $form['attributes']['rebuild_option_table'] = array(
+    '#type' => 'link',
+    '#title' => t('Rebuild attribute options table'),
+    '#href' => '/admin/store/settings/products/options-table-build',
+    '#attributes' => array('class' => array('button', 'button-secondary')),
+  );
+}
