@@ -28,13 +28,16 @@ have purchased, that is, products that have been put into an order during the ch
 Provided handlers for UC Products
 -----
 These handlers are found under the groups "Product attributes" and "Product attribute options".
-- **Attributes** (field): this field produces a list of teh attributes attached to a product (see example). For example, if your "T-shirt" 
+- **Attributes** (field): this field produces a list of the attributes attached to a product (see example). For example, if your "T-shirt" 
 has attributes "Size" and "Color", the filter will show both. 
 - **Product attribute options** (field): this field allows you to display price, cost or weight
 adjustments for a product that has attributes (see example below). For example, if you have defined
 an attribute "Size" with three options (Large, Medium, Small) with sell price adjustments for each, you can use this 
 field to display the adjustment for a given attribute/option for the product. 
 - **Has attributes** (filter): this boolean filter allows you to filter products that have/do not have attributes attached to it.
+
+<img width="1198" alt="Screen Shot 2023-01-14 at 5 59 50 PM" src="https://user-images.githubusercontent.com/9938978/212525168-4b9bb0f5-eb45-42cf-9253-1e79eedb705b.png">
+
 
 Provided handlers for UC Products that have SKU adjustments
 ----
@@ -50,15 +53,20 @@ These handlers are found under the group "Products with SKU adjustments".
 - **Stock from products with SKU adjustments** (relationship): allows you to create a relationship to the Stock table, so taht you can show, for example, stock levels for products with adjusted SKUs. Before this handler, the only way to check stock level for adjusted SKUs was through the module UC Reports (non-view).
 - **[Attribute name]** (filter): filter products with adjusted SKUs by the attribute options.
 
+<img width="991" alt="Screen Shot 2023-01-14 at 9 08 13 PM" src="https://user-images.githubusercontent.com/9938978/212525206-a38e7514-3bf0-4110-a8a3-427d3b7ea631.png">
+
 Provided handlers for UC Ordered Products
 ----
-Ordered Products are products that belong to an order. This modules creates a new table to store adjustments (cost, price and weight) as well as option names for Ordered Products. This is done to remediate some poor design, where options and adjustments were saved partially as a serialized string. The new table `uc_ordered_product_options`, is initially populated by looking up the **current** cost, price and weight of the associated options. This means that, if the option cost, price and weight adjustments have change after the product was purchased, or if the original product has been deleted, the resulting entries in that table may NOT be completely accurate. However, after this module is enabled, any new purchases are saved in the new table accurately and correctly. 
+Ordered Products are products that belong to an order. This module creates a new table to store adjustments (cost, price and weight) as well as customized option names for Ordered Products. This is done to remediate some poor design in UC Attributes, where options and adjustments are saved as a serialized string in the `uc_order_product` table. The new table created by this module, `uc_ordered_product_options`, is initially populated by looking up the **current** cost, price and weight of the associated options. This means that, if the option's cost, price or weight adjustments have change since the product was originally purchased, or if the original product was deleted, the resulting entries in the new table may NOT be completely accurate, and the Views created with this module may also not be accurate (in terms of the price/cost/weight adjustments). However, after this module is enabled, products in any new purchases are saved in the new table accurately and correctly. 
 
-These handlers are found in the group "Ordered products" and "Ordered product options".
+These handlers are found within the groups "Ordered products" and "Ordered product options".
 
 - **Ordered product ID** (field): shows the internal ID of the ordered product (see example).
 - **Attribute options** (filter): filters ordered products by attribute options.
 - **Options** (field): shows a list of the chosen options for an ordered product. This field can also display the price adjustment for those options.
+- 
+<img width="1368" alt="Screen Shot 2023-01-14 at 9 47 53 PM" src="https://user-images.githubusercontent.com/9938978/212525384-8cbca817-1079-4e93-a03d-2141b8ebfbe3.png">
+
 
 Credits
 ----
