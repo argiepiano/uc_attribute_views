@@ -255,7 +255,7 @@ function uc_attribute_views_build_finished($success, $results, $operations) {
       $message = $succeeded;
     }
     backdrop_set_message($message);
-    state_set('options_table_built', TRUE);
+    state_set('options_table_built', REQUEST_TIME);
   }
   else {
     // An error occurred.
@@ -278,10 +278,21 @@ function uc_attribute_views_build_finished($success, $results, $operations) {
  * to rebuild the options table. 
  */
 function uc_attribute_views_form_uc_product_settings_form_alter(&$form, &$form_state) {
+  $items[] = t('This button is provided by the Ubercart Attribute Views module.');
+  $items[] = t('Building the attribute option table is only needed when the module is first intalled.');
+  $items[] = t('Building the table again may result in some information becoming outdate or inaccurate, for example, for attributes and options that have changed since the products were first ordered.');
+  $items = theme('item_list', array('items' => $items));
+  $form['attributes']['rebuild_intro_message'] = array(
+    '#markup' => t('<p><strong>Rebuild attribute option table</strong></p>!item_list', array('!item_list' => $items)),
+  );
+  $last_rebuilt = state_get('options_table_built', FALSE);
+  $form['attributes']['last_rebuit'] = array(
+    '#markup' => t('<p>The attribute options table was last rebuilt on: @last</p>', array('@last' => $last_rebuilt > 0 ? format_date($last_rebuilt, 'medium') : 'Never')),
+  );
   $form['attributes']['rebuild_option_table'] = array(
     '#type' => 'link',
-    '#title' => t('Rebuild attribute options table'),
+    '#title' => t('Build attribute options table'),
     '#href' => '/admin/store/settings/products/options-table-build',
-    '#attributes' => array('class' => array('button', 'button-secondary')),
+    '#attributes' => array('class' => array('button', 'button-danger')),
   );
 }

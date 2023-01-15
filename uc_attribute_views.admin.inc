@@ -52,7 +52,7 @@ function uc_attribute_views_build_confirmation_submit($form, &$form_state) {
   }
   else {
     backdrop_set_message(t('No ordered products found.'));
-    state_set('options_table_built', TRUE);
+    state_set('options_table_built', REQUEST_TIME);
   }
 
   $form_state['redirect'] = 'admin/reports/status';
