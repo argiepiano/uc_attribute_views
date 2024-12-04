@@ -23,8 +23,10 @@ class UcAttributesViewsAttributesField extends views_handler_field_prerender_lis
     foreach ($values as $row) { 
       $node = node_load($row->nid);
       $attributes = array();
-      foreach ($node->attributes as $aid => $attribute) {
-        $attributes[$aid]['output'] = $attribute->name;
+      if (!empty($node->attributes)) {
+        foreach ($node->attributes as $aid => $attribute) {
+          $attributes[$aid]['output'] = $attribute->name;
+        }
       }
       $this->items[$row->nid] = $attributes;
     }
